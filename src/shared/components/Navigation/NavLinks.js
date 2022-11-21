@@ -6,6 +6,9 @@ import "./NavLinks.css";
 
 const NavLinks = () => {
   const auth = useContext(AuthContext);
+  const logoutHandler = () => {
+    auth.logout();
+  };
   return (
     <ul className="nav-links">
       <li>
@@ -26,6 +29,13 @@ const NavLinks = () => {
       {!auth.isLoggedIn && (
         <li>
           <NavLink to="/auth">Authenticate</NavLink>
+        </li>
+      )}
+      {auth.isLoggedIn && (
+        <li>
+          <NavLink to="/auth" onClick={logoutHandler}>
+            Logout
+          </NavLink>
         </li>
       )}
     </ul>
