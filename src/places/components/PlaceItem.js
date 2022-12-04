@@ -1,9 +1,12 @@
 import React, { useContext, useState } from "react";
 import Button from "../../shared/components/FormElements/Button";
 import Card from "../../shared/components/UIElements/Card";
+import ErrorModal from "../../shared/components/UIElements/ErrorModal";
+import LoadingSpinner from "../../shared/components/UIElements/LoadingSpinner";
 import Map from "../../shared/components/UIElements/Map";
 import Modal from "../../shared/components/UIElements/Modal";
 import { AuthContext } from "../../shared/context/auth-context";
+import { useHttpClient } from "../../shared/hooks/http-hook";
 
 import "./PlaceItem.css";
 const PlaceItem = ({
@@ -14,7 +17,9 @@ const PlaceItem = ({
   address,
   creatorId,
   coordinates,
+  onDelete,
 }) => {
+  const { isLoading, error, sendRequest, clearError } = useHttpClient();
   const [showMap, setShowMap] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const openMapHandler = () => setShowMap(true);
@@ -28,12 +33,24 @@ const PlaceItem = ({
     setShowConfirmModal(false);
   };
 
-  const confirmDeleteHandler = (event) => {
-    console.log("deleting");
+  const confirmDeleteHandler = async (event) => {
     setShowConfirmModal(false);
+    try {
+      await sendRequest(
+        `${process.env.REACT_APP_BACKEND_URL}/places/${id}`,
+        "DELETE",
+        null,
+        {
+          Authorization: "Bearer " + auth.token,
+        }
+      );
+      onDelete(id);
+    } catch (error) {}
   };
   return (
     <>
+      <ErrorModal error={error} onClose={clearError} />
+
       <Modal
         show={showMap}
         onCancel={closeMapHandler}
@@ -67,6 +84,7 @@ const PlaceItem = ({
       </Modal>
       <li className="place-item">
         <Card className="palce-item__content">
+          {isLoading && <LoadingSpinner asOverlay />}
           <div className="place-item__image">
             <img src={image} alt={title} />
           </div>
@@ -79,8 +97,10 @@ const PlaceItem = ({
             <Button inverse onClick={openMapHandler}>
               View On Map
             </Button>
-            {auth.isLoggedIn && <Button to={`/palces/${id}`}>Edit</Button>}
-            {auth.isLoggedIn && (
+            {auth.userId === creatorId && (
+              <Button to={`/places/${id}`}>Edit</Button>
+            )}
+            {auth.userId === creatorId && (
               <Button danger onClick={showDeleteWarningHandler}>
                 Delete
               </Button>

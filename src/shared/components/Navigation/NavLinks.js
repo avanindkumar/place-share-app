@@ -6,6 +6,7 @@ import "./NavLinks.css";
 
 const NavLinks = () => {
   const auth = useContext(AuthContext);
+  console.log(auth);
   const logoutHandler = () => {
     auth.logout();
   };
@@ -18,7 +19,7 @@ const NavLinks = () => {
       </li>
       {auth.isLoggedIn && (
         <li>
-          <NavLink to="/u1/places">My Places</NavLink>
+          <NavLink to={`/${auth.userId}/places`}>My Places</NavLink>
         </li>
       )}
       {auth.isLoggedIn && (

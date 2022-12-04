@@ -1,42 +1,41 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import ErrorModal from "../../shared/components/UIElements/ErrorModal";
+import LoadingSpinner from "../../shared/components/UIElements/LoadingSpinner";
+import { useHttpClient } from "../../shared/hooks/http-hook";
 import PlaceList from "../components/PlaceList";
-
-const DUMMY_PLACES = [
-  {
-    id: "p1",
-    title: "Shri Kashi Vishwanath Temple",
-    description:
-      "Landmark riverside temple to Shiva, known for its 18th-century gold-plated spire and sacred well.",
-    imageUrl:
-      "https://img.republicworld.com/republic-prod/stories/promolarge/xhdpi/5ntgsglgvpgb6x0v_1639378537.jpeg",
-    address: "Lahori Tola, Varanasi, Uttar Pradesh 221001",
-    location: {
-      lat: 25.3108532,
-      lng: 82.9777193,
-    },
-    creator: "u1",
-  },
-  {
-    id: "p1",
-    title: "Shri Kashi Vishwanath Temple",
-    description:
-      "Landmark riverside temple to Shiva, known for its 18th-century gold-plated spire and sacred well.",
-    imageUrl:
-      "https://img.republicworld.com/republic-prod/stories/promolarge/xhdpi/5ntgsglgvpgb6x0v_1639378537.jpeg",
-    address: "Lahori Tola, Varanasi, Uttar Pradesh 221001",
-    location: {
-      lat: 25.3108532,
-      lng: 82.9777193,
-    },
-    creator: "u2",
-  },
-];
 
 const UserPlaces = () => {
   const userId = useParams().userId;
-  const loadedPlaces = DUMMY_PLACES.filter((place) => place.creator === userId);
-  return <PlaceList places={loadedPlaces} />;
+  const { isLoading, error, sendRequest, clearError } = useHttpClient();
+  const [loadedPlaces, setLoadedPlaces] = useState([]);
+  useEffect(() => {
+    const fetchUserPlaces = async () => {
+      try {
+        const data = await sendRequest(
+          `${process.env.REACT_APP_BACKEND_URL}/places/user/${userId}`
+        );
+        setLoadedPlaces(data.places);
+        console.log(data.places);
+      } catch (error) {}
+    };
+    fetchUserPlaces();
+  }, [sendRequest, userId]);
+  const placeDeleteHandler = (placeId) => {
+    setLoadedPlaces((pervPlaces) =>
+      pervPlaces.filter((place) => place.id !== placeId)
+    );
+  };
+
+  return (
+    <>
+      <ErrorModal error={error} onClose={clearError} />
+      {isLoading && <LoadingSpinner asOverlay />}
+      {!isLoading && loadedPlaces && (
+        <PlaceList places={loadedPlaces} onDelete={placeDeleteHandler} />
+      )}
+    </>
+  );
 };
 
 export default UserPlaces;

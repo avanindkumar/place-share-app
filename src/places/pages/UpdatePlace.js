@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useContext, useEffect, useState } from "react";
+import { useHistory, useParams } from "react-router-dom";
 import Button from "../../shared/components/FormElements/Button";
 import Input from "../../shared/components/FormElements/Input";
 import {
@@ -7,43 +7,19 @@ import {
   VALIDATOR_REQUIRE,
 } from "../../shared/util/validators";
 import { useForm } from "../../shared/hooks/form-hook";
-
 import "./PlaceForm.css";
 import Card from "../../shared/components/UIElements/Card";
+import { useHttpClient } from "../../shared/hooks/http-hook";
+import LoadingSpinner from "../../shared/components/UIElements/LoadingSpinner";
+import ErrorModal from "../../shared/components/UIElements/ErrorModal";
+import { AuthContext } from "../../shared/context/auth-context";
 
-const DUMMY_PLACES = [
-  {
-    id: "p1",
-    title: "Shri Kashi Vishwanath Temple",
-    description:
-      "Landmark riverside temple to Shiva, known for its 18th-century gold-plated spire and sacred well.",
-    imageUrl:
-      "https://img.republicworld.com/republic-prod/stories/promolarge/xhdpi/5ntgsglgvpgb6x0v_1639378537.jpeg",
-    address: "Lahori Tola, Varanasi, Uttar Pradesh 221001",
-    location: {
-      lat: 25.3108532,
-      lng: 82.9777193,
-    },
-    creator: "u1",
-  },
-  {
-    id: "p1",
-    title: "Shri Kashi Vishwanath Temple",
-    description:
-      "Landmark riverside temple to Shiva, known for its 18th-century gold-plated spire and sacred well.",
-    imageUrl:
-      "https://img.republicworld.com/republic-prod/stories/promolarge/xhdpi/5ntgsglgvpgb6x0v_1639378537.jpeg",
-    address: "Lahori Tola, Varanasi, Uttar Pradesh 221001",
-    location: {
-      lat: 25.3108532,
-      lng: 82.9777193,
-    },
-    creator: "u2",
-  },
-];
 const UpdatePlace = () => {
   const placeId = useParams().placeId;
-  const [isLoading, setIsLoading] = useState(true);
+  const auth = useContext(AuthContext);
+  const history = useHistory();
+  const [loadedPlace, setLoadedPlace] = useState();
+  const { isLoading, error, sendRequest, clearError } = useHttpClient();
   const [formState, inputHandler, setFormData] = useForm(
     {
       title: {
@@ -57,27 +33,32 @@ const UpdatePlace = () => {
     },
     false
   );
-  const identifiedPlace = DUMMY_PLACES.find((p) => p.id === placeId);
 
   useEffect(() => {
-    if (identifiedPlace) {
-      setFormData(
-        {
-          title: {
-            value: identifiedPlace.title,
-            isValid: true,
+    const fetchPlace = async () => {
+      try {
+        const data = await sendRequest(
+          `${process.env.REACT_APP_BACKEND_URL}/places/${placeId}`
+        );
+        setLoadedPlace(data.place);
+        setFormData(
+          {
+            title: {
+              value: data.place.title,
+              isValid: true,
+            },
+            description: {
+              value: data.place.description,
+              isValid: true,
+            },
           },
-          description: {
-            value: identifiedPlace.description,
-            isValid: true,
-          },
-        },
-        true
-      );
-      setIsLoading(false);
-    }
-  }, [setFormData, identifiedPlace]);
-  if (!identifiedPlace) {
+          true
+        );
+      } catch (error) {}
+    };
+    fetchPlace();
+  }, [placeId, sendRequest, setFormData]);
+  if (!loadedPlace && !error) {
     return (
       <div className="center">
         <Card>
@@ -86,44 +67,58 @@ const UpdatePlace = () => {
       </div>
     );
   }
-  const placeUpdateSubmitHandler = (event) => {
+  const placeUpdateSubmitHandler = async (event) => {
     event.preventDefault();
-    console.log(formState);
+    try {
+      await sendRequest(
+        `${process.env.REACT_APP_BACKEND_URL}/places/${placeId}`,
+        "PATCH",
+        JSON.stringify({
+          title: formState.inputs.title.value,
+          description: formState.inputs.description.value,
+        }),
+        {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + auth.token,
+        }
+      );
+      history.push(`/${auth.userId}/places`);
+    } catch (error) {}
   };
-  if (isLoading) {
-    return (
-      <div className="center">
-        <h2>Loading...</h2>
-      </div>
-    );
-  }
   return (
-    <form className="place-form" onSubmit={placeUpdateSubmitHandler}>
-      <Input
-        id="title"
-        element="input"
-        type="text"
-        label="Title"
-        validators={[VALIDATOR_REQUIRE()]}
-        errorText="Plz enter a valid title."
-        initialValue={formState.inputs.title.value}
-        initialIsValid={formState.inputs.title.isValid}
-        onInput={inputHandler}
-      />
-      <Input
-        id="description"
-        element="textarea"
-        label="Description"
-        validators={[VALIDATOR_REQUIRE(), VALIDATOR_MINLENGTH(5)]}
-        errorText="Plz enter a valid description (minimum 5 character)."
-        initialValue={formState.inputs.description.value}
-        initialIsValid={formState.inputs.description.isValid}
-        onInput={inputHandler}
-      />
-      <Button type="Submit" disabled={!formState.isValid}>
-        Update Place
-      </Button>
-    </form>
+    <>
+      <ErrorModal error={error} onClose={clearError} />
+      {isLoading && <LoadingSpinner asOverlay />}
+
+      {!isLoading && loadedPlace && (
+        <form className="place-form" onSubmit={placeUpdateSubmitHandler}>
+          <Input
+            id="title"
+            element="input"
+            type="text"
+            label="Title"
+            validators={[VALIDATOR_REQUIRE()]}
+            errorText="Plz enter a valid title."
+            initialValue={loadedPlace.title}
+            initialIsValid={true}
+            onInput={inputHandler}
+          />
+          <Input
+            id="description"
+            element="textarea"
+            label="Description"
+            validators={[VALIDATOR_REQUIRE(), VALIDATOR_MINLENGTH(5)]}
+            errorText="Plz enter a valid description (minimum 5 character)."
+            initialValue={loadedPlace.description}
+            initialIsValid={true}
+            onInput={inputHandler}
+          />
+          <Button type="Submit" disabled={!formState.isValid}>
+            Update Place
+          </Button>
+        </form>
+      )}
+    </>
   );
 };
 
